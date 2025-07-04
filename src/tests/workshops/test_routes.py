@@ -8,10 +8,6 @@ from src.modules.workshops.routes import *
 from src.storages.sql.models.users import User, UserRole
 from src.storages.sql.models.workshops import Workshop
 
-"""Need to change: 
-    Token reading so accept always
-    Reading bd to get"""
-
 
 @pytest.mark.asyncio
 async def test_add_workshop_succes(admin_dep, create_workshop_data):

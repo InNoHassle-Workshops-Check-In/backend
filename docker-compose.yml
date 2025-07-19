@@ -1,0 +1,66 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: workshops_postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-workshops_db}
+      POSTGRES_USER: ${POSTGRES_USER:-workshops_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-workshops_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-workshops_user} -d ${POSTGRES_DB:-workshops_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - workshops_network
+    restart: unless-stopped
+
+  backend:
+    image: python:3.13
+    container_name: workshops_backend
+    environment:
+      # Database configuration
+      DATABASE_URI: ${DATABASE_URI}
+      
+      # Application configuration
+      SECRET_KEY: ${SECRET_KEY}
+      TOKEN_EXPIRE_TIME: ${TOKEN_EXPIRE_TIME:-60}
+      API_JWT_TOKEN: ${API_JWT_TOKEN}
+      IS_PROD: ${IS_PROD:-Prod}
+      
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    ports:
+      - "${BACKEND_PORT:-9000}:9000"
+    volumes:
+      - ./src:/app/src
+      - ./pyproject.toml:/app/pyproject.toml
+      - ./uv.lock:/app/uv.lock
+      - ./alembic.ini:/app/alembic.ini
+      - ./logging.yaml:/app/logging.yaml
+      - ./logs:/app/logs
+    working_dir: /app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - workshops_network
+    restart: unless-stopped
+    command: >
+      sh -c "
+        pip install --no-cache-dir uv &&
+        uv pip install -e . &&
+        uv run src/api/__main__.py
+      "
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  workshops_network:
+    driver: bridge 
